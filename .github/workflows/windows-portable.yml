@@ -1,0 +1,102 @@
+name: Windows Portable
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Zip name tag. Defaults to the branch name."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  windows-portable:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve asset tag
+        id: tag
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if ("${{ github.event_name }}" -eq "workflow_dispatch" -and "${{ github.event.inputs.tag }}" -ne "") {
+            $tag = "${{ github.event.inputs.tag }}"
+          }
+          if ($tag -notmatch '^[A-Za-z0-9._-]+$') {
+            throw "Refusing unsafe tag name: $tag"
+          }
+          "name=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Test masonry layout
+        run: npm test
+
+      - name: Build PhotoWall.exe
+        run: npm run tauri build -- --no-bundle
+
+      - name: Package Windows and source zips
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.tag.outputs.name }}"
+          $release = "src-tauri/target/release"
+          $found = $null
+          foreach ($name in @("PhotoWall.exe", "photowall.exe")) {
+            $candidate = Join-Path $release $name
+            if (Test-Path $candidate) { $found = $candidate; break }
+          }
+          if (-not $found) {
+            $found = Get-ChildItem $release -Filter "*.exe" |
+              Where-Object { $_.Name -notlike "*build-script*" } |
+              Select-Object -First 1 -ExpandProperty FullName
+          }
+          if (-not $found) { throw "PhotoWall.exe was not produced in $release" }
+          $size = (Get-Item $found).Length
+          if ($size -lt 1MB) { throw "PhotoWall.exe looks too small ($size bytes): $found" }
+          New-Item -ItemType Directory -Force -Path pkg | Out-Null
+          Copy-Item $found "pkg/PhotoWall.exe" -Force
+          Compress-Archive -Path "pkg/PhotoWall.exe" -DestinationPath "PhotoWall-$tag-windows-x64.zip" -Force
+          git archive --format=zip --prefix=PhotoWall/ -o "PhotoWall-$tag-source.zip" HEAD
+          Get-ChildItem "PhotoWall-$tag-*.zip" | Format-Table Name, Length
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: PhotoWall-${{ steps.tag.outputs.name }}
+          if-no-files-found: error
+          path: |
+            PhotoWall-${{ steps.tag.outputs.name }}-windows-x64.zip
+            PhotoWall-${{ steps.tag.outputs.name }}-source.zip
+
+      - name: Attach zips to the GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          fail_on_unmatched_files: true
+          files: |
+            PhotoWall-${{ steps.tag.outputs.name }}-windows-x64.zip
+            PhotoWall-${{ steps.tag.outputs.name }}-source.zip

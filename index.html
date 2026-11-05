@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>PhotoWall</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header id="topbar">
+        <div class="brand">PhotoWall</div>
+        <div id="folder" title="">No folder open</div>
+        <label class="check" title="Include photos in subfolders">
+          <input id="subfolders" type="checkbox" />
+          Subfolders
+        </label>
+        <div class="cols" title="Column count">
+          <button id="col-dec" type="button" aria-label="Fewer columns">−</button>
+          <span id="col-count">5</span>
+          <button id="col-inc" type="button" aria-label="More columns">+</button>
+        </div>
+        <button id="open" type="button">Open folder</button>
+      </header>
+      <div id="progress" hidden>
+        <div id="progress-track"><div id="progress-bar"></div></div>
+        <span id="progress-label">Reading photos…</span>
+      </div>
+      <div id="banner" hidden></div>
+      <div id="scroller">
+        <div id="empty">
+          <p class="eyebrow">Waterfall</p>
+          <h1 id="empty-title">Drop a photo folder</h1>
+          <p id="empty-body">JPG, JPEG, PNG, WEBP, and GIF. Hidden files are skipped.</p>
+          <button id="empty-open" type="button">Open folder</button>
+        </div>
+        <div id="spacer"></div>
+      </div>
+      <footer id="status">
+        <span id="count">0 photos</span>
+        <span class="hint">Click a photo · ← → · Esc restores the scroll · Ctrl+wheel or +/− columns</span>
+      </footer>
+      <div id="dropveil" hidden>Drop a folder to open it</div>
+      <div id="lightbox" hidden>
+        <button id="lb-prev" type="button" aria-label="Previous photo">‹</button>
+        <figure id="lb-stage">
+          <img id="lb-img" alt="" />
+          <figcaption>
+            <span id="lb-name"></span>
+            <span id="lb-index"></span>
+          </figcaption>
+        </figure>
+        <button id="lb-next" type="button" aria-label="Next photo">›</button>
+        <button id="lb-close" type="button">Esc</button>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
